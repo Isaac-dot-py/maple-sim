@@ -11,8 +11,8 @@ import edu.wpi.first.units.measure.Distance;
 import java.util.List;
 import java.util.function.Predicate;
 import org.ironmaple.simulation.gamepieces.GamePiece;
-import org.jbox2d.collision.shapes.PolygonShape;
-import org.jbox2d.common.Vec2;
+import org.ironmaple.simulation.physics.PolygonShape;
+import org.ironmaple.simulation.physics.Vec2;
 
 /**
  *

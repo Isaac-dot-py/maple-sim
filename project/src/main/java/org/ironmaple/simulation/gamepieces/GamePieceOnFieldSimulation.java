@@ -15,16 +15,16 @@ import java.util.function.DoubleSupplier;
 import org.ironmaple.simulation.IntakeSimulation;
 import org.ironmaple.simulation.SimulatedArena;
 import org.ironmaple.utils.mathutils.GeometryConvertor;
-import org.jbox2d.collision.shapes.CircleShape;
-import org.jbox2d.collision.shapes.PolygonShape;
-import org.jbox2d.collision.shapes.Shape;
-import org.jbox2d.common.Vec2;
-import org.jbox2d.dynamics.Body;
-import org.jbox2d.dynamics.BodyDef;
-import org.jbox2d.dynamics.BodyType;
-import org.jbox2d.dynamics.Fixture;
-import org.jbox2d.dynamics.FixtureDef;
-import org.jbox2d.dynamics.World;
+import org.ironmaple.simulation.physics.CircleShape;
+import org.ironmaple.simulation.physics.PolygonShape;
+import org.ironmaple.simulation.physics.Shape;
+import org.ironmaple.simulation.physics.Vec2;
+import org.ironmaple.simulation.physics.Body;
+import org.ironmaple.simulation.physics.BodyDef;
+import org.ironmaple.simulation.physics.BodyType;
+import org.ironmaple.simulation.physics.Fixture;
+import org.ironmaple.simulation.physics.FixtureDef;
+import org.ironmaple.simulation.physics.World;
 
 /**
  *

@@ -11,15 +11,15 @@ import java.util.function.Predicate;
 import org.ironmaple.simulation.drivesims.AbstractDriveTrainSimulation;
 import org.ironmaple.simulation.gamepieces.GamePieceOnFieldSimulation;
 import org.ironmaple.simulation.seasonspecific.reefscape2025.ReefscapeCoralAlgaeStack;
-import org.jbox2d.callbacks.ContactImpulse;
-import org.jbox2d.callbacks.ContactListener;
-import org.jbox2d.collision.Manifold;
-import org.jbox2d.collision.shapes.PolygonShape;
-import org.jbox2d.common.Vec2;
-import org.jbox2d.dynamics.Body;
-import org.jbox2d.dynamics.Fixture;
-import org.jbox2d.dynamics.FixtureDef;
-import org.jbox2d.dynamics.contacts.Contact;
+import org.ironmaple.simulation.physics.ContactImpulse;
+import org.ironmaple.simulation.physics.ContactListener;
+import org.ironmaple.simulation.physics.Manifold;
+import org.ironmaple.simulation.physics.PolygonShape;
+import org.ironmaple.simulation.physics.Vec2;
+import org.ironmaple.simulation.physics.Body;
+import org.ironmaple.simulation.physics.Fixture;
+import org.ironmaple.simulation.physics.FixtureDef;
+import org.ironmaple.simulation.physics.Contact;
 
 /**
  *

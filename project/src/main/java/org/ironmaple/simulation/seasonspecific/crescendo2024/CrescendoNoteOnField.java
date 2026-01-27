@@ -8,7 +8,7 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.util.Units;
 import org.ironmaple.simulation.gamepieces.GamePieceOnFieldSimulation;
-import org.jbox2d.collision.shapes.CircleShape;
+import org.ironmaple.simulation.physics.CircleShape;
 
 public class CrescendoNoteOnField extends GamePieceOnFieldSimulation {
     /* https://www.andymark.com/products/frc-2024-am-4999 */

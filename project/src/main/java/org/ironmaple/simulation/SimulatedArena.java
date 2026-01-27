@@ -24,20 +24,20 @@ import org.ironmaple.simulation.gamepieces.GamePieceOnFieldSimulation;
 import org.ironmaple.simulation.gamepieces.GamePieceProjectile;
 import org.ironmaple.simulation.motorsims.SimulatedBattery;
 import org.ironmaple.simulation.seasonspecific.rebuilt2026.Arena2026Rebuilt;
-import org.jbox2d.callbacks.ContactImpulse;
-import org.jbox2d.callbacks.ContactListener;
-import org.jbox2d.collision.Manifold;
-import org.jbox2d.collision.shapes.EdgeShape;
-import org.jbox2d.collision.shapes.PolygonShape;
-import org.jbox2d.collision.shapes.Shape;
-import org.jbox2d.common.Vec2;
-import org.jbox2d.dynamics.Body;
-import org.jbox2d.dynamics.BodyDef;
-import org.jbox2d.dynamics.BodyType;
-import org.jbox2d.dynamics.Fixture;
-import org.jbox2d.dynamics.FixtureDef;
-import org.jbox2d.dynamics.World;
-import org.jbox2d.dynamics.contacts.Contact;
+import org.ironmaple.simulation.physics.ContactImpulse;
+import org.ironmaple.simulation.physics.ContactListener;
+import org.ironmaple.simulation.physics.Manifold;
+import org.ironmaple.simulation.physics.EdgeShape;
+import org.ironmaple.simulation.physics.PolygonShape;
+import org.ironmaple.simulation.physics.Shape;
+import org.ironmaple.simulation.physics.Vec2;
+import org.ironmaple.simulation.physics.Body;
+import org.ironmaple.simulation.physics.BodyDef;
+import org.ironmaple.simulation.physics.BodyType;
+import org.ironmaple.simulation.physics.Fixture;
+import org.ironmaple.simulation.physics.FixtureDef;
+import org.ironmaple.simulation.physics.World;
+import org.ironmaple.simulation.physics.Contact;
 
 /**
  *

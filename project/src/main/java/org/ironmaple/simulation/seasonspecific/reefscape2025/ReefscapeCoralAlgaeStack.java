@@ -8,7 +8,7 @@ import java.util.List;
 import org.ironmaple.simulation.SimulatedArena;
 import org.ironmaple.simulation.gamepieces.GamePieceOnFieldSimulation;
 import org.ironmaple.utils.mathutils.GeometryConvertor;
-import org.jbox2d.collision.shapes.CircleShape;
+import org.ironmaple.simulation.physics.CircleShape;
 
 /**
  *

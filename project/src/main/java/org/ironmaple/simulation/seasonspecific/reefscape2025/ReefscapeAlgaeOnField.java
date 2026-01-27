@@ -6,7 +6,7 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import org.ironmaple.simulation.gamepieces.GamePieceOnFieldSimulation;
-import org.jbox2d.collision.shapes.CircleShape;
+import org.ironmaple.simulation.physics.CircleShape;
 
 /**
  *

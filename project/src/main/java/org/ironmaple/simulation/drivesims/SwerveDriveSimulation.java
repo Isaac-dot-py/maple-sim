@@ -15,7 +15,7 @@ import org.ironmaple.simulation.SimulatedArena;
 import org.ironmaple.simulation.drivesims.configs.DriveTrainSimulationConfig;
 import org.ironmaple.utils.mathutils.GeometryConvertor;
 import org.ironmaple.utils.mathutils.MapleCommonMath;
-import org.jbox2d.common.Vec2;
+import org.ironmaple.simulation.physics.Vec2;
 
 /**
  *

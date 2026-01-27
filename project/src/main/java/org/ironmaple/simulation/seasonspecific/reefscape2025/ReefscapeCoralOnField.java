@@ -4,7 +4,7 @@ import static edu.wpi.first.units.Units.*;
 
 import edu.wpi.first.math.geometry.Pose2d;
 import org.ironmaple.simulation.gamepieces.GamePieceOnFieldSimulation;
-import org.jbox2d.collision.shapes.PolygonShape;
+import org.ironmaple.simulation.physics.PolygonShape;
 
 /**
  *

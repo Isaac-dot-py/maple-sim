@@ -12,7 +12,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import org.ironmaple.simulation.SimulatedArena;
 import org.ironmaple.simulation.drivesims.configs.SwerveModuleSimulationConfig;
 import org.ironmaple.simulation.motorsims.*;
-import org.jbox2d.common.Vec2;
+import org.ironmaple.simulation.physics.Vec2;
 
 /**
  *
