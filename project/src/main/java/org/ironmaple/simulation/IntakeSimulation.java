@@ -8,20 +8,18 @@ import java.util.ArrayDeque;
 import java.util.Objects;
 import java.util.Queue;
 import java.util.function.Predicate;
-import org.dyn4j.collision.CollisionBody;
-import org.dyn4j.collision.Fixture;
-import org.dyn4j.dynamics.Body;
-import org.dyn4j.dynamics.BodyFixture;
-import org.dyn4j.dynamics.contact.Contact;
-import org.dyn4j.dynamics.contact.SolvedContact;
-import org.dyn4j.geometry.Convex;
-import org.dyn4j.geometry.Rectangle;
-import org.dyn4j.geometry.Vector2;
-import org.dyn4j.world.ContactCollisionData;
-import org.dyn4j.world.listener.ContactListener;
 import org.ironmaple.simulation.drivesims.AbstractDriveTrainSimulation;
 import org.ironmaple.simulation.gamepieces.GamePieceOnFieldSimulation;
 import org.ironmaple.simulation.seasonspecific.reefscape2025.ReefscapeCoralAlgaeStack;
+import org.jbox2d.callbacks.ContactImpulse;
+import org.jbox2d.callbacks.ContactListener;
+import org.jbox2d.collision.Manifold;
+import org.jbox2d.collision.shapes.PolygonShape;
+import org.jbox2d.common.Vec2;
+import org.jbox2d.dynamics.Body;
+import org.jbox2d.dynamics.Fixture;
+import org.jbox2d.dynamics.FixtureDef;
+import org.jbox2d.dynamics.contacts.Contact;
 
 /**
  *
@@ -53,7 +51,7 @@ import org.ironmaple.simulation.seasonspecific.reefscape2025.ReefscapeCoralAlgae
  * <p><strong>Note:</strong> This class simulates an idealized "touch it, get it" intake and does not model the actual
  * functioning of an intake mechanism.
  */
-public class IntakeSimulation extends BodyFixture {
+public class IntakeSimulation {
     private final int capacity;
     private int gamePiecesInIntakeCount;
     private boolean intakeRunning;
@@ -62,6 +60,15 @@ public class IntakeSimulation extends BodyFixture {
     private final AbstractDriveTrainSimulation driveTrainSimulation;
     private final String targetedGamePieceType;
     private Predicate<GamePieceOnFieldSimulation> customIntakeCondition = gp -> true;
+
+    /** The intake fixture */
+    private Fixture intakeFixture;
+
+    /** The fixture definition for the intake */
+    private final FixtureDef fixtureDef;
+
+    /** The intake shape */
+    private final PolygonShape shape;
 
     public enum IntakeSide {
         FRONT,
@@ -117,32 +124,54 @@ public class IntakeSimulation extends BodyFixture {
         return new IntakeSimulation(
                 targetedGamePieceType,
                 driveTrainSimulation,
-                getIntakeRectangle(driveTrainSimulation, width.in(Meters), lengthExtended.in(Meters), side),
+                createIntakeShape(driveTrainSimulation, width.in(Meters), lengthExtended.in(Meters), side),
                 capacity);
     }
 
-    private static Rectangle getIntakeRectangle(
+    private static PolygonShape createIntakeShape(
             AbstractDriveTrainSimulation driveTrainSimulation, double width, double lengthExtended, IntakeSide side) {
-        final Rectangle intakeRectangle = new Rectangle(width, lengthExtended);
-        intakeRectangle.rotate(
-                switch (side) {
-                    case LEFT, RIGHT -> 0;
-                    case FRONT, BACK -> Math.toRadians(90);
-                });
+        PolygonShape shape = new PolygonShape();
         final double distanceTransformed = lengthExtended / 2 - 0.01;
-        intakeRectangle.translate(
-                switch (side) {
-                    case LEFT -> new Vector2(
-                            0, driveTrainSimulation.config.bumperWidthY.in(Meters) / 2 + distanceTransformed);
-                    case RIGHT -> new Vector2(
-                            0, -driveTrainSimulation.config.bumperWidthY.in(Meters) / 2 - distanceTransformed);
-                    case FRONT -> new Vector2(
-                            driveTrainSimulation.config.bumperLengthX.in(Meters) / 2 + distanceTransformed, 0);
-                    case BACK -> new Vector2(
-                            -driveTrainSimulation.config.bumperLengthX.in(Meters) / 2 - distanceTransformed / 2, 0);
-                });
 
-        return intakeRectangle;
+        Vec2 center;
+        float halfWidth;
+        float halfLength;
+
+        switch (side) {
+            case LEFT:
+                center = new Vec2(
+                        0, (float) (driveTrainSimulation.config.bumperWidthY.in(Meters) / 2 + distanceTransformed));
+                halfWidth = (float) (width / 2);
+                halfLength = (float) (lengthExtended / 2);
+                shape.setAsBox(halfWidth, halfLength, center, 0);
+                break;
+            case RIGHT:
+                center = new Vec2(
+                        0, (float) (-driveTrainSimulation.config.bumperWidthY.in(Meters) / 2 - distanceTransformed));
+                halfWidth = (float) (width / 2);
+                halfLength = (float) (lengthExtended / 2);
+                shape.setAsBox(halfWidth, halfLength, center, 0);
+                break;
+            case FRONT:
+                center = new Vec2(
+                        (float) (driveTrainSimulation.config.bumperLengthX.in(Meters) / 2 + distanceTransformed), 0);
+                halfWidth = (float) (lengthExtended / 2);
+                halfLength = (float) (width / 2);
+                shape.setAsBox(halfWidth, halfLength, center, 0);
+                break;
+            case BACK:
+                center = new Vec2(
+                        (float) (-driveTrainSimulation.config.bumperLengthX.in(Meters) / 2 - distanceTransformed / 2),
+                        0);
+                halfWidth = (float) (lengthExtended / 2);
+                halfLength = (float) (width / 2);
+                shape.setAsBox(halfWidth, halfLength, center, 0);
+                break;
+            default:
+                shape.setAsBox((float) (width / 2), (float) (lengthExtended / 2));
+        }
+
+        return shape;
     }
 
     /**
@@ -154,16 +183,19 @@ public class IntakeSimulation extends BodyFixture {
      *
      * @param targetedGamePieceType the type of game pieces that this intake can collect
      * @param driveTrainSimulation the chassis to which this intake is attached
-     * @param shape the shape of the intake when fully extended, represented as a {@link Convex} object
+     * @param shape the shape of the intake when fully extended, represented as a {@link PolygonShape} object
      * @param capacity the maximum number of game pieces that the intake can hold
      */
     public IntakeSimulation(
             String targetedGamePieceType,
             AbstractDriveTrainSimulation driveTrainSimulation,
-            Convex shape,
+            PolygonShape shape,
             int capacity) {
-        super(shape);
-        super.setDensity(0);
+        this.shape = shape;
+        this.fixtureDef = new FixtureDef();
+        this.fixtureDef.shape = shape;
+        this.fixtureDef.density = 0;
+        this.fixtureDef.isSensor = true; // Make it a sensor so it doesn't affect physics
 
         this.targetedGamePieceType = targetedGamePieceType;
         this.gamePiecesInIntakeCount = 0;
@@ -192,7 +224,11 @@ public class IntakeSimulation extends BodyFixture {
     public void startIntake() {
         if (intakeRunning) return;
 
-        driveTrainSimulation.addFixture(this);
+        Body body = driveTrainSimulation.getBody();
+        if (body != null) {
+            this.intakeFixture = body.createFixture(fixtureDef);
+            this.intakeFixture.setUserData(this);
+        }
         this.intakeRunning = true;
     }
 
@@ -209,7 +245,11 @@ public class IntakeSimulation extends BodyFixture {
     public void stopIntake() {
         if (!intakeRunning) return;
 
-        driveTrainSimulation.removeFixture(this);
+        Body body = driveTrainSimulation.getBody();
+        if (body != null && intakeFixture != null) {
+            body.destroyFixture(intakeFixture);
+            intakeFixture = null;
+        }
         this.intakeRunning = false;
     }
 
@@ -299,30 +339,49 @@ public class IntakeSimulation extends BodyFixture {
      * <p>If contact is detected and the intake is running, the {@link GamePieceOnFieldSimulation} will be marked for
      * removal from the field.
      */
-    public final class GamePieceContactListener implements ContactListener<Body> {
+    public final class GamePieceContactListener implements ContactListener {
         @Override
-        public void begin(ContactCollisionData collision, Contact contact) {
+        public void beginContact(Contact contact) {
             if (!intakeRunning) return;
             if (gamePiecesInIntakeCount >= capacity) return;
 
-            final CollisionBody<?> collisionBody1 = collision.getBody1(), collisionBody2 = collision.getBody2();
-            final Fixture fixture1 = collision.getFixture1(), fixture2 = collision.getFixture2();
+            Fixture fixtureA = contact.getFixtureA();
+            Fixture fixtureB = contact.getFixtureB();
+            Body bodyA = fixtureA.getBody();
+            Body bodyB = fixtureB.getBody();
 
-            if (collisionBody1 instanceof GamePieceOnFieldSimulation gamePiece
-                    && Objects.equals(gamePiece.type, targetedGamePieceType)
-                    && fixture2 == IntakeSimulation.this) flagGamePieceForRemoval(gamePiece);
-            else if (collisionBody2 instanceof GamePieceOnFieldSimulation gamePiece
-                    && Objects.equals(gamePiece.type, targetedGamePieceType)
-                    && fixture1 == IntakeSimulation.this) flagGamePieceForRemoval(gamePiece);
+            Object userDataA = bodyA.getUserData();
+            Object userDataB = bodyB.getUserData();
+            Object fixtureDataA = fixtureA.getUserData();
+            Object fixtureDataB = fixtureB.getUserData();
 
-            boolean coralOrAlgaeIntake = "Coral".equals(IntakeSimulation.this.targetedGamePieceType)
-                    || "Algae".equals(IntakeSimulation.this.targetedGamePieceType);
-            if (collisionBody1 instanceof ReefscapeCoralAlgaeStack stack
-                    && coralOrAlgaeIntake
-                    && fixture2 == IntakeSimulation.this) flagGamePieceForRemoval(stack);
-            else if (collisionBody2 instanceof ReefscapeCoralAlgaeStack stack
-                    && coralOrAlgaeIntake
-                    && fixture1 == IntakeSimulation.this) flagGamePieceForRemoval(stack);
+            // Check if one of the fixtures is our intake
+            boolean fixtureAIsIntake = fixtureDataA == IntakeSimulation.this;
+            boolean fixtureBIsIntake = fixtureDataB == IntakeSimulation.this;
+
+            if (!fixtureAIsIntake && !fixtureBIsIntake) return;
+
+            // Check if the other body is a game piece
+            if (fixtureAIsIntake && userDataB instanceof GamePieceOnFieldSimulation gamePiece) {
+                if (Objects.equals(gamePiece.type, targetedGamePieceType)) {
+                    flagGamePieceForRemoval(gamePiece);
+                }
+            } else if (fixtureBIsIntake && userDataA instanceof GamePieceOnFieldSimulation gamePiece) {
+                if (Objects.equals(gamePiece.type, targetedGamePieceType)) {
+                    flagGamePieceForRemoval(gamePiece);
+                }
+            }
+
+            // Check for coral/algae stacks
+            boolean coralOrAlgaeIntake =
+                    "Coral".equals(targetedGamePieceType) || "Algae".equals(targetedGamePieceType);
+            if (coralOrAlgaeIntake) {
+                if (fixtureAIsIntake && userDataB instanceof ReefscapeCoralAlgaeStack stack) {
+                    flagGamePieceForRemoval(stack);
+                } else if (fixtureBIsIntake && userDataA instanceof ReefscapeCoralAlgaeStack stack) {
+                    flagGamePieceForRemoval(stack);
+                }
+            }
         }
 
         private void flagGamePieceForRemoval(GamePieceOnFieldSimulation gamePiece) {
@@ -331,24 +390,14 @@ public class IntakeSimulation extends BodyFixture {
             gamePiecesInIntakeCount++;
         }
 
-        /* functions not used */
         @Override
-        public void persist(ContactCollisionData collision, Contact oldContact, Contact newContact) {}
+        public void endContact(Contact contact) {}
 
         @Override
-        public void end(ContactCollisionData collision, Contact contact) {}
+        public void preSolve(Contact contact, Manifold oldManifold) {}
 
         @Override
-        public void destroyed(ContactCollisionData collision, Contact contact) {}
-
-        @Override
-        public void collision(ContactCollisionData collision) {}
-
-        @Override
-        public void preSolve(ContactCollisionData collision, Contact contact) {}
-
-        @Override
-        public void postSolve(ContactCollisionData collision, SolvedContact contact) {}
+        public void postSolve(Contact contact, ContactImpulse impulse) {}
     }
 
     /**

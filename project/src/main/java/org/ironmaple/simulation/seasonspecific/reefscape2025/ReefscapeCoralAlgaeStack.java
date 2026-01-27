@@ -5,10 +5,10 @@ import static edu.wpi.first.units.Units.*;
 import edu.wpi.first.math.geometry.*;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import java.util.List;
-import org.dyn4j.geometry.Circle;
 import org.ironmaple.simulation.SimulatedArena;
 import org.ironmaple.simulation.gamepieces.GamePieceOnFieldSimulation;
 import org.ironmaple.utils.mathutils.GeometryConvertor;
+import org.jbox2d.collision.shapes.CircleShape;
 
 /**
  *
@@ -28,8 +28,14 @@ import org.ironmaple.utils.mathutils.GeometryConvertor;
  * positions of the coral and algae in the stacks, and display them through AScope.
  */
 public class ReefscapeCoralAlgaeStack extends GamePieceOnFieldSimulation {
+    private static CircleShape createStackShape() {
+        CircleShape shape = new CircleShape();
+        shape.m_radius = 0.15f;
+        return shape;
+    }
+
     public static final GamePieceInfo REEFSCAPE_STACK_INFO =
-            new GamePieceInfo("CoralAlgaeStack", new Circle(0.15), Meters.zero(), Kilograms.of(0.7), 1.8, 4, 0.3);
+            new GamePieceInfo("CoralAlgaeStack", createStackShape(), Meters.zero(), Kilograms.of(0.7), 1.8, 4, 0.3);
 
     private final SimulatedArena arena;
     private final Translation2d initialPosition;
@@ -51,7 +57,7 @@ public class ReefscapeCoralAlgaeStack extends GamePieceOnFieldSimulation {
         if (collapsed) return;
         // make the stack collapse if its moved
         if (getPoseOnField().getTranslation().minus(initialPosition).getNorm() > 0.2
-                && getLinearVelocity().getMagnitude() > 0.3) collapse();
+                && getLinearVelocity().length() > 0.3) collapse();
     }
 
     private Translation2d velocityMPS() {

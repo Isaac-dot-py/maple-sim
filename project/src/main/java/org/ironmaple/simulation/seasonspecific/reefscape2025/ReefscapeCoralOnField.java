@@ -3,8 +3,8 @@ package org.ironmaple.simulation.seasonspecific.reefscape2025;
 import static edu.wpi.first.units.Units.*;
 
 import edu.wpi.first.math.geometry.Pose2d;
-import org.dyn4j.geometry.Rectangle;
 import org.ironmaple.simulation.gamepieces.GamePieceOnFieldSimulation;
+import org.jbox2d.collision.shapes.PolygonShape;
 
 /**
  *
@@ -18,8 +18,14 @@ import org.ironmaple.simulation.gamepieces.GamePieceOnFieldSimulation;
  * <p>The Coral has a 4-inch (~102 mm) inside diameter and a 4½-inch (~11 cm) outside diameter.
  */
 public class ReefscapeCoralOnField extends GamePieceOnFieldSimulation {
+    private static PolygonShape createCoralShape() {
+        PolygonShape shape = new PolygonShape();
+        shape.setAsBox(0.3f / 2, 0.11f / 2);
+        return shape;
+    }
+
     public static final GamePieceInfo REEFSCAPE_CORAL_INFO =
-            new GamePieceInfo("Coral", new Rectangle(0.3, 0.11), Meters.of(0.11), Kilograms.of(0.3), 2.8, 4, 0.3);
+            new GamePieceInfo("Coral", createCoralShape(), Meters.of(0.11), Kilograms.of(0.3), 2.8, 4, 0.3);
 
     public ReefscapeCoralOnField(Pose2d initialPose) {
         super(REEFSCAPE_CORAL_INFO, initialPose);

@@ -36,7 +36,7 @@ dependencies {
     //    implementation wpi.java.deps.wpilib()
     implementation wpi.java.vendor.java()
 
-    implementation 'org.dyn4j:dyn4j:5.0.2'
+    implementation 'org.jbox2d:jbox2d-library:2.2.1.1'
 
     implementation "edu.wpi.first.cscore:cscore-java:$wpilibVersion"
     implementation "edu.wpi.first.cameraserver:cameraserver-java:$wpilibVersion"

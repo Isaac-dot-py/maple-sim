@@ -12,13 +12,17 @@ import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.units.measure.Distance;
 import edu.wpi.first.units.measure.Mass;
 import java.util.function.DoubleSupplier;
-import org.dyn4j.dynamics.Body;
-import org.dyn4j.dynamics.BodyFixture;
-import org.dyn4j.geometry.Convex;
-import org.dyn4j.geometry.MassType;
 import org.ironmaple.simulation.IntakeSimulation;
 import org.ironmaple.simulation.SimulatedArena;
 import org.ironmaple.utils.mathutils.GeometryConvertor;
+import org.jbox2d.collision.shapes.Shape;
+import org.jbox2d.common.Vec2;
+import org.jbox2d.dynamics.Body;
+import org.jbox2d.dynamics.BodyDef;
+import org.jbox2d.dynamics.BodyType;
+import org.jbox2d.dynamics.Fixture;
+import org.jbox2d.dynamics.FixtureDef;
+import org.jbox2d.dynamics.World;
 
 /**
  *
@@ -33,7 +37,7 @@ import org.ironmaple.utils.mathutils.GeometryConvertor;
  * {@link org.ironmaple.simulation.SimulatedArena} through
  * {@link SimulatedArena#addGamePiece(GamePieceOnFieldSimulation)}.
  */
-public class GamePieceOnFieldSimulation extends Body implements GamePiece {
+public class GamePieceOnFieldSimulation implements GamePiece {
     public static final double COEFFICIENT_OF_FRICTION = 0.8, MINIMUM_BOUNCING_VELOCITY = 0.2;
 
     /**
@@ -54,6 +58,21 @@ public class GamePieceOnFieldSimulation extends Body implements GamePiece {
      * <p>Affects the result of {@link SimulatedArena#getGamePiecesPosesByType(String)}.
      */
     public final String type;
+
+    /** The Box2D body for this game piece */
+    protected Body body;
+
+    /** The main fixture for collision */
+    protected Fixture fixture;
+
+    /** Info about this game piece type */
+    protected final GamePieceInfo info;
+
+    /** Initial pose */
+    private final Pose2d initialPose;
+
+    /** Initial velocity */
+    private final Translation2d initialVelocity;
 
     /**
      *
@@ -78,29 +97,81 @@ public class GamePieceOnFieldSimulation extends Body implements GamePiece {
      * @param initialVelocityMPS the initial velocity of the game piece, in meters per second
      */
     public GamePieceOnFieldSimulation(
-            GamePieceInfo info,
-            DoubleSupplier zPositionSupplier,
-            Pose2d initialPose,
-            Translation2d initialVelocityMPS) {
-        super();
+            GamePieceInfo info, DoubleSupplier zPositionSupplier, Pose2d initialPose, Translation2d initialVelocityMPS) {
         this.type = info.type;
         this.zPositionSupplier = zPositionSupplier;
+        this.info = info;
+        this.initialPose = initialPose;
+        this.initialVelocity = initialVelocityMPS;
+    }
 
-        BodyFixture bodyFixture = super.addFixture(info.shape);
+    /**
+     *
+     *
+     * <h2>Adds this game piece to the physics world.</h2>
+     *
+     * @param world the Box2D world
+     */
+    public void addToWorld(World world) {
+        BodyDef bd = new BodyDef();
+        bd.type = BodyType.DYNAMIC;
+        bd.position.set((float) initialPose.getX(), (float) initialPose.getY());
+        bd.angle = (float) initialPose.getRotation().getRadians();
+        bd.linearDamping = (float) info.linearDamping;
+        bd.angularDamping = (float) info.angularDamping;
+        bd.bullet = true;
 
-        bodyFixture.setFriction(COEFFICIENT_OF_FRICTION);
-        bodyFixture.setRestitution(info.coefficientOfRestitution);
-        bodyFixture.setRestitutionVelocity(MINIMUM_BOUNCING_VELOCITY);
+        this.body = world.createBody(bd);
 
-        bodyFixture.setDensity(info.gamePieceMass.in(Kilogram) / info.shape.getArea());
-        super.setMass(MassType.NORMAL);
+        FixtureDef fd = new FixtureDef();
+        fd.shape = info.shape;
+        fd.friction = (float) COEFFICIENT_OF_FRICTION;
+        fd.restitution = (float) info.coefficientOfRestitution;
+        fd.density = (float) (info.gamePieceMass.in(Kilogram) / getShapeArea(info.shape));
 
-        super.setLinearDamping(info.linearDamping);
-        super.setAngularDamping(info.angularDamping);
-        super.setBullet(true);
+        this.fixture = body.createFixture(fd);
 
-        super.setTransform(GeometryConvertor.toDyn4jTransform(initialPose));
-        super.setLinearVelocity(GeometryConvertor.toDyn4jVector2(initialVelocityMPS));
+        // Set initial velocity
+        body.setLinearVelocity(GeometryConvertor.toBox2dVec2(initialVelocity));
+
+        // Store reference to this game piece in the body's user data
+        body.setUserData(this);
+    }
+
+    /**
+     *
+     *
+     * <h2>Removes this game piece from the physics world.</h2>
+     *
+     * @param world the Box2D world
+     */
+    public void removeFromWorld(World world) {
+        if (body != null) {
+            world.destroyBody(body);
+            body = null;
+        }
+    }
+
+    /**
+     *
+     *
+     * <h2>Gets the approximate area of a shape.</h2>
+     */
+    private double getShapeArea(Shape shape) {
+        // Approximate area calculation
+        // For now, use a default value; specific shapes should override
+        return 0.01; // Default 100 cm^2
+    }
+
+    /**
+     *
+     *
+     * <h2>Gets the Box2D body.</h2>
+     *
+     * @return the Box2D body
+     */
+    public Body getBody() {
+        return body;
     }
 
     /**
@@ -111,8 +182,37 @@ public class GamePieceOnFieldSimulation extends Body implements GamePiece {
      * @param chassisSpeedsWorldFrame the speeds of the game piece
      */
     public void setVelocity(ChassisSpeeds chassisSpeedsWorldFrame) {
-        super.setLinearVelocity(GeometryConvertor.toDyn4jLinearVelocity(chassisSpeedsWorldFrame));
-        super.setAngularVelocity(chassisSpeedsWorldFrame.omegaRadiansPerSecond);
+        if (body != null) {
+            body.setLinearVelocity(GeometryConvertor.toBox2dLinearVelocity(chassisSpeedsWorldFrame));
+            body.setAngularVelocity((float) chassisSpeedsWorldFrame.omegaRadiansPerSecond);
+        }
+    }
+
+    /**
+     *
+     *
+     * <h2>Sets the linear velocity of this game piece.</h2>
+     *
+     * @param velocity the velocity
+     */
+    public void setLinearVelocity(Vec2 velocity) {
+        if (body != null) {
+            body.setLinearVelocity(velocity);
+        }
+    }
+
+    /**
+     *
+     *
+     * <h2>Gets the linear velocity of this game piece.</h2>
+     *
+     * @return the linear velocity
+     */
+    public Vec2 getLinearVelocity() {
+        if (body != null) {
+            return body.getLinearVelocity();
+        }
+        return new Vec2(0, 0);
     }
 
     /**
@@ -123,7 +223,10 @@ public class GamePieceOnFieldSimulation extends Body implements GamePiece {
      * @return the 2d position of the game piece
      */
     public Pose2d getPoseOnField() {
-        return GeometryConvertor.toWpilibPose2d(super.getTransform());
+        if (body != null) {
+            return GeometryConvertor.toWpilibPose2d(body.getTransform());
+        }
+        return initialPose;
     }
 
     /**
@@ -151,13 +254,13 @@ public class GamePieceOnFieldSimulation extends Body implements GamePiece {
      * <h2>Stores the info of a type of game piece</h2>
      *
      * @param type the type of the game piece, affecting categorization within the arena
-     * @param shape the shape of the collision space for the game piece
+     * @param shape the Box2D shape of the collision space for the game piece
      * @param gamePieceHeight the height (thickness) of the game piece, in meters
      * @param gamePieceMass the mass of the game piece, in kilograms
      */
     public record GamePieceInfo(
             String type,
-            Convex shape,
+            Shape shape,
             Distance gamePieceHeight,
             Mass gamePieceMass,
             double linearDamping,

@@ -5,8 +5,8 @@ import static edu.wpi.first.units.Units.*;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
-import org.dyn4j.geometry.Circle;
 import org.ironmaple.simulation.gamepieces.GamePieceOnFieldSimulation;
+import org.jbox2d.collision.shapes.CircleShape;
 
 /**
  *
@@ -17,8 +17,14 @@ import org.ironmaple.simulation.gamepieces.GamePieceOnFieldSimulation;
  * rubber playground ball with a ±½ inch (~12 mm) diameter, featured as a game piece in the 2025 Reefscape game.
  */
 public class ReefscapeAlgaeOnField extends GamePieceOnFieldSimulation {
+    private static CircleShape createAlgaeShape() {
+        CircleShape shape = new CircleShape();
+        shape.m_radius = 0.176f;
+        return shape;
+    }
+
     public static final GamePieceInfo REEFSCAPE_ALGAE_INFO =
-            new GamePieceInfo("Algae", new Circle(0.176), Inches.of(16), Kilograms.of(0.4), 1.8, 5, 0.8);
+            new GamePieceInfo("Algae", createAlgaeShape(), Inches.of(16), Kilograms.of(0.4), 1.8, 5, 0.8);
 
     public ReefscapeAlgaeOnField(Translation2d initialPosition) {
         super(REEFSCAPE_ALGAE_INFO, new Pose2d(initialPosition, new Rotation2d()));

@@ -4,47 +4,38 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
-import org.dyn4j.geometry.Rotation;
-import org.dyn4j.geometry.Transform;
-import org.dyn4j.geometry.Vector2;
+import org.jbox2d.common.Transform;
+import org.jbox2d.common.Vec2;
 
-/** utils to convert between WPILIB and dyn4j geometry classes */
+/** utils to convert between WPILIB and Box2D geometry classes */
 public class GeometryConvertor {
-    public static Vector2 toDyn4jVector2(Translation2d wpilibTranslation2d) {
-        return new Vector2(wpilibTranslation2d.getX(), wpilibTranslation2d.getY());
+    public static Vec2 toBox2dVec2(Translation2d wpilibTranslation2d) {
+        return new Vec2((float) wpilibTranslation2d.getX(), (float) wpilibTranslation2d.getY());
     }
 
-    public static Translation2d toWpilibTranslation2d(Vector2 dyn4jVector2) {
-        return new Translation2d(dyn4jVector2.x, dyn4jVector2.y);
+    public static Translation2d toWpilibTranslation2d(Vec2 box2dVec2) {
+        return new Translation2d(box2dVec2.x, box2dVec2.y);
     }
 
-    public static Rotation toDyn4jRotation(Rotation2d wpilibRotation2d) {
-        return new Rotation(wpilibRotation2d.getRadians());
+    public static float toBox2dRotation(Rotation2d wpilibRotation2d) {
+        return (float) wpilibRotation2d.getRadians();
     }
 
-    public static Rotation2d toWpilibRotation2d(Rotation dyn4jRotation) {
-        return new Rotation2d(dyn4jRotation.toRadians());
+    public static Rotation2d toWpilibRotation2d(float box2dRotation) {
+        return new Rotation2d(box2dRotation);
     }
 
-    public static Transform toDyn4jTransform(Pose2d wpilibPose2d) {
-        final Transform transform = new Transform();
-        transform.setTranslation(toDyn4jVector2(wpilibPose2d.getTranslation()));
-        transform.setRotation(toDyn4jRotation(wpilibPose2d.getRotation()));
-        return transform;
-    }
-
-    public static Pose2d toWpilibPose2d(Transform dyn4jTransform) {
+    public static Pose2d toWpilibPose2d(Transform box2dTransform) {
         return new Pose2d(
-                toWpilibTranslation2d(dyn4jTransform.getTranslation()),
-                toWpilibRotation2d(dyn4jTransform.getRotation()));
+                toWpilibTranslation2d(box2dTransform.p), toWpilibRotation2d(box2dTransform.q.getAngle()));
     }
 
-    public static Vector2 toDyn4jLinearVelocity(ChassisSpeeds wpilibChassisSpeeds) {
-        return new Vector2(wpilibChassisSpeeds.vxMetersPerSecond, wpilibChassisSpeeds.vyMetersPerSecond);
+    public static Vec2 toBox2dLinearVelocity(ChassisSpeeds wpilibChassisSpeeds) {
+        return new Vec2((float) wpilibChassisSpeeds.vxMetersPerSecond, (float) wpilibChassisSpeeds.vyMetersPerSecond);
     }
 
-    public static ChassisSpeeds toWpilibChassisSpeeds(Vector2 dyn4jLinearVelocity, double angularVelocityRadPerSec) {
-        return new ChassisSpeeds(dyn4jLinearVelocity.x, dyn4jLinearVelocity.y, angularVelocityRadPerSec);
+    public static ChassisSpeeds toWpilibChassisSpeeds(Vec2 box2dLinearVelocity, double angularVelocityRadPerSec) {
+        return new ChassisSpeeds(box2dLinearVelocity.x, box2dLinearVelocity.y, angularVelocityRadPerSec);
     }
 
     public static Translation2d getChassisSpeedsTranslationalComponent(ChassisSpeeds chassisSpeeds) {

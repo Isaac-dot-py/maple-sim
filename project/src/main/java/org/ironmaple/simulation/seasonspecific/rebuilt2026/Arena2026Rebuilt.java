@@ -19,7 +19,6 @@ import edu.wpi.first.units.measure.LinearVelocity;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import java.util.List;
-import org.dyn4j.dynamics.Settings;
 import org.ironmaple.simulation.SimulatedArena;
 
 public class Arena2026Rebuilt extends SimulatedArena {
@@ -197,13 +196,8 @@ public class Arena2026Rebuilt extends SimulatedArena {
     public Arena2026Rebuilt(boolean AddRampCollider) {
         super(new RebuiltFieldObstaclesMap(AddRampCollider));
 
-        Settings settings = physicsWorld.getSettings();
-
-        // settings.setVelocityConstraintSolverIterations(3);
-        // settings.setPositionConstraintSolverIterations(2);
-        settings.setMinimumAtRestTime(0.02);
-
-        physicsWorld.setSettings(settings);
+        // Box2D settings are configured via the World constructor or step parameters
+        // No direct equivalent to dyn4j Settings
 
         blueHub = new RebuiltHub(this, true);
         super.addCustomSimulation(blueHub);

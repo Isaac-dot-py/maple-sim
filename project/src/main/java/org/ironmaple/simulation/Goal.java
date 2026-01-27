@@ -10,9 +10,9 @@ import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.units.measure.Distance;
 import java.util.List;
 import java.util.function.Predicate;
-import org.dyn4j.geometry.Rectangle;
-import org.dyn4j.geometry.Vector2;
 import org.ironmaple.simulation.gamepieces.GamePiece;
+import org.jbox2d.collision.shapes.PolygonShape;
+import org.jbox2d.common.Vec2;
 
 /**
  *
@@ -66,15 +66,21 @@ public abstract class Goal implements SimulatedArena.Simulatable {
      *
      * <p>Validates that a position is within an axis-aligned 3D box.
      *
-     * @param xyBox the 2D box in XY plane
+     * @param centerX center X coordinate
+     * @param centerY center Y coordinate
+     * @param halfWidth half width of the box
+     * @param halfHeight half height of the box
      * @param minZMeters minimum Z coordinate in meters
      * @param maxZMeters maximum Z coordinate in meters
      * @return position checker for box-shaped bounds
      */
-    public static PositionChecker box(Rectangle xyBox, double minZMeters, double maxZMeters) {
-        return position -> xyBox.contains(new Vector2(position.getX(), position.getY()))
-                && position.getZ() >= minZMeters
-                && position.getZ() <= maxZMeters;
+    public static PositionChecker box(
+            double centerX, double centerY, double halfWidth, double halfHeight, double minZMeters, double maxZMeters) {
+        return position -> {
+            double dx = Math.abs(position.getX() - centerX);
+            double dy = Math.abs(position.getY() - centerY);
+            return dx <= halfWidth && dy <= halfHeight && position.getZ() >= minZMeters && position.getZ() <= maxZMeters;
+        };
     }
 
     /**
@@ -141,7 +147,10 @@ public abstract class Goal implements SimulatedArena.Simulatable {
         return gamePiece -> true;
     }
 
-    protected Rectangle xyBox;
+    protected double boxCenterX;
+    protected double boxCenterY;
+    protected double boxHalfWidth;
+    protected double boxHalfHeight;
     protected final Distance height;
     protected final Distance elevation;
 
@@ -197,14 +206,16 @@ public abstract class Goal implements SimulatedArena.Simulatable {
 
         this.allowGrounded = allowGrounded;
 
-        this.xyBox = new Rectangle(xDimension.in(Units.Meters), yDimension.in(Units.Meters));
-        this.xyBox.translate(new Vector2(position.getX(), position.getY()));
+        this.boxCenterX = position.getX();
+        this.boxCenterY = position.getY();
+        this.boxHalfWidth = xDimension.in(Units.Meters) / 2;
+        this.boxHalfHeight = yDimension.in(Units.Meters) / 2;
 
         minZMeters = position.getZ();
         maxZMeters = position.getZ() + height.in(Units.Meters);
 
         this.rotationChecker = anyRotation();
-        this.positionChecker = box(xyBox, minZMeters, maxZMeters);
+        this.positionChecker = box(boxCenterX, boxCenterY, boxHalfWidth, boxHalfHeight, minZMeters, maxZMeters);
         this.velocityValidator = (gamePiece) -> true;
     }
 
@@ -364,9 +375,9 @@ public abstract class Goal implements SimulatedArena.Simulatable {
         // Call our values just once.
         var pose = gamePiece.getPose3d();
 
-        return xyBox.contains(new Vector2(pose.getX(), pose.getY()))
-                && pose.getZ() >= minZMeters
-                && pose.getZ() <= maxZMeters;
+        double dx = Math.abs(pose.getX() - boxCenterX);
+        double dy = Math.abs(pose.getY() - boxCenterY);
+        return dx <= boxHalfWidth && dy <= boxHalfHeight && pose.getZ() >= minZMeters && pose.getZ() <= maxZMeters;
     }
 
     public Goal withCustomPositionChecker(PositionChecker checker) {

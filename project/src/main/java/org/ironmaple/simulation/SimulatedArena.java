@@ -18,20 +18,26 @@ import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import java.util.*;
-import org.dyn4j.dynamics.Body;
-import org.dyn4j.dynamics.BodyFixture;
-import org.dyn4j.geometry.Convex;
-import org.dyn4j.geometry.Geometry;
-import org.dyn4j.geometry.MassType;
-import org.dyn4j.world.PhysicsWorld;
-import org.dyn4j.world.World;
 import org.ironmaple.simulation.drivesims.AbstractDriveTrainSimulation;
 import org.ironmaple.simulation.gamepieces.GamePiece;
 import org.ironmaple.simulation.gamepieces.GamePieceOnFieldSimulation;
 import org.ironmaple.simulation.gamepieces.GamePieceProjectile;
 import org.ironmaple.simulation.motorsims.SimulatedBattery;
 import org.ironmaple.simulation.seasonspecific.rebuilt2026.Arena2026Rebuilt;
-import org.ironmaple.utils.mathutils.GeometryConvertor;
+import org.jbox2d.callbacks.ContactImpulse;
+import org.jbox2d.callbacks.ContactListener;
+import org.jbox2d.collision.Manifold;
+import org.jbox2d.collision.shapes.EdgeShape;
+import org.jbox2d.collision.shapes.PolygonShape;
+import org.jbox2d.collision.shapes.Shape;
+import org.jbox2d.common.Vec2;
+import org.jbox2d.dynamics.Body;
+import org.jbox2d.dynamics.BodyDef;
+import org.jbox2d.dynamics.BodyType;
+import org.jbox2d.dynamics.Fixture;
+import org.jbox2d.dynamics.FixtureDef;
+import org.jbox2d.dynamics.World;
+import org.jbox2d.dynamics.contacts.Contact;
 
 /**
  *
@@ -210,7 +216,7 @@ public abstract class SimulatedArena {
         SIMULATION_DT = robotPeriod.div(SIMULATION_SUB_TICKS_IN_1_PERIOD);
     }
 
-    protected final World<Body> physicsWorld;
+    protected final World physicsWorld;
     protected final Set<AbstractDriveTrainSimulation> driveTrainSimulations;
 
     protected final Set<GamePiece> gamePieces;
@@ -230,9 +236,11 @@ public abstract class SimulatedArena {
      * @param obstaclesMap the season-specific field map containing the layout of obstacles for the simulation
      */
     protected SimulatedArena(FieldMap obstaclesMap) {
-        this.physicsWorld = new World<>();
-        this.physicsWorld.setGravity(PhysicsWorld.ZERO_GRAVITY);
-        for (Body obstacle : obstaclesMap.obstacles) this.physicsWorld.addBody(obstacle);
+        // Create world with zero gravity (2D top-down simulation)
+        this.physicsWorld = new World(new Vec2(0, 0));
+        // Set the field map's world reference so it can create obstacles
+        obstaclesMap.setWorld(this.physicsWorld);
+        // Now initialize the obstacles (subclasses should call their obstacle creation in constructor after super())
         this.driveTrainSimulations = new HashSet<>();
         customSimulations = new ArrayList<>();
         this.gamePieces = new HashSet<>();
@@ -241,6 +249,17 @@ public abstract class SimulatedArena {
         setupValueForMatchBreakdown("TeleopScore");
         setupValueForMatchBreakdown("Auto/AutoScore");
         resetFieldPublisher.set(false);
+    }
+
+    /**
+     *
+     *
+     * <h2>Gets the Box2D physics world.</h2>
+     *
+     * @return the Box2D World instance
+     */
+    public World getPhysicsWorld() {
+        return physicsWorld;
     }
 
     /**
@@ -296,7 +315,7 @@ public abstract class SimulatedArena {
      */
     protected synchronized void addIntakeSimulation(IntakeSimulation intakeSimulation) {
         this.intakeSimulations.add(intakeSimulation);
-        this.physicsWorld.addContactListener(intakeSimulation.getGamePieceContactListener());
+        this.physicsWorld.setContactListener(intakeSimulation.getGamePieceContactListener());
     }
 
     /**
@@ -313,8 +332,7 @@ public abstract class SimulatedArena {
      * @param driveTrainSimulation the drivetrain simulation to be registered
      */
     public synchronized void addDriveTrainSimulation(AbstractDriveTrainSimulation driveTrainSimulation) {
-        this.physicsWorld.addBody(driveTrainSimulation);
-
+        driveTrainSimulation.addToWorld(this.physicsWorld);
         this.driveTrainSimulations.add(driveTrainSimulation);
     }
 
@@ -331,7 +349,7 @@ public abstract class SimulatedArena {
      * @param gamePiece the game piece to be registered in the simulation
      */
     public synchronized void addGamePiece(GamePieceOnFieldSimulation gamePiece) {
-        this.physicsWorld.addBody(gamePiece);
+        gamePiece.addToWorld(this.physicsWorld);
         this.gamePieces.add(gamePiece);
     }
 
@@ -475,7 +493,7 @@ public abstract class SimulatedArena {
      * @return <code>true</code> if this set contained the specified element
      */
     public synchronized boolean removeGamePiece(GamePieceOnFieldSimulation gamePiece) {
-        this.physicsWorld.removeBody(gamePiece);
+        gamePiece.removeFromWorld(this.physicsWorld);
         return this.gamePieces.remove(gamePiece);
     }
 
@@ -508,7 +526,9 @@ public abstract class SimulatedArena {
      * <p>This method clears all game pieces from the physics world and the simulation's game piece collection.
      */
     public synchronized void clearGamePieces() {
-        for (GamePieceOnFieldSimulation gamePiece : this.gamePiecesOnField()) this.physicsWorld.removeBody(gamePiece);
+        for (GamePieceOnFieldSimulation gamePiece : this.gamePiecesOnField()) {
+            gamePiece.removeFromWorld(this.physicsWorld);
+        }
 
         this.gamePieces.clear();
         this.blueScore = 0;
@@ -522,7 +542,13 @@ public abstract class SimulatedArena {
      * new arena </h2>
      */
     public synchronized void shutDown() {
-        this.physicsWorld.removeAllBodies();
+        // Remove all bodies from the world
+        Body body = this.physicsWorld.getBodyList();
+        while (body != null) {
+            Body next = body.getNext();
+            this.physicsWorld.destroyBody(body);
+            body = next;
+        }
     }
 
     /**
@@ -537,8 +563,8 @@ public abstract class SimulatedArena {
      * <p>If not configured through {@link SimulatedArena#overrideSimulationTimings(Time, int)} , the simulator will
      * iterate through 5 Sub-ticks by default.
      *
-     * <p>The amount of CPU Time that the Dyn4j engine uses in displayed in <code>
-     * SmartDashboard/MapleArenaSimulation/Dyn4jEngineCPUTimeMS</code>, usually performance is not a concern
+     * <p>The amount of CPU Time that the Box2D engine uses in displayed in <code>
+     * SmartDashboard/MapleArenaSimulation/Box2DEngineCPUTimeMS</code>, usually performance is not a concern
      */
     public synchronized void simulationPeriodic() {
         /* obtain lock to the simulated arena class to block any calls to overrideTimings() */
@@ -549,7 +575,7 @@ public abstract class SimulatedArena {
 
             matchClock += getSimulationDt().in(Units.Seconds);
 
-            SmartDashboard.putNumber("MapleArenaSimulation/Dyn4jEngineCPUTimeMS", (System.nanoTime() - t0) / 1000000.0);
+            SmartDashboard.putNumber("MapleArenaSimulation/Box2DEngineCPUTimeMS", (System.nanoTime() - t0) / 1000000.0);
 
             if (resetFieldSubscriber.get()) {
                 SimulatedArena.getInstance().resetFieldForAuto();
@@ -581,7 +607,8 @@ public abstract class SimulatedArena {
 
         GamePieceProjectile.updateGamePieceProjectiles(this, this.gamePieceLaunched());
 
-        this.physicsWorld.step(1, SIMULATION_DT.in(Seconds));
+        // Box2D step: timeStep, velocityIterations, positionIterations
+        this.physicsWorld.step((float) SIMULATION_DT.in(Seconds), 6, 2);
 
         intakeSimulations.forEach(intake -> intake.removeObtainedGamePieces(this));
         customSimulations.forEach(sim -> sim.simulationSubTick(subTickNum));
@@ -723,35 +750,64 @@ public abstract class SimulatedArena {
      * class to store the field map for that specific season's game.
      */
     public abstract static class FieldMap {
-        private final List<Body> obstacles = new ArrayList<>();
+        protected final List<Body> obstacles = new ArrayList<>();
+        protected World world;
+
+        /**
+         *
+         *
+         * <h2>Sets the world for this field map.</h2>
+         *
+         * @param world the Box2D world
+         */
+        public void setWorld(World world) {
+            this.world = world;
+        }
 
         protected void addBorderLine(Translation2d startingPoint, Translation2d endingPoint) {
-            addCustomObstacle(
-                    Geometry.createSegment(
-                            GeometryConvertor.toDyn4jVector2(startingPoint),
-                            GeometryConvertor.toDyn4jVector2(endingPoint)),
-                    new Pose2d());
-        }
+            if (world == null) return;
+            BodyDef bd = new BodyDef();
+            bd.type = BodyType.STATIC;
+            bd.position.set(0, 0);
+            Body obstacle = world.createBody(bd);
 
-        protected void addRectangularObstacle(double width, double height, Pose2d absolutePositionOnField) {
-            addCustomObstacle(Geometry.createRectangle(width, height), absolutePositionOnField);
-        }
+            EdgeShape edge = new EdgeShape();
+            edge.set(
+                    new Vec2((float) startingPoint.getX(), (float) startingPoint.getY()),
+                    new Vec2((float) endingPoint.getX(), (float) endingPoint.getY()));
 
-        protected void addCustomObstacle(Convex shape, Pose2d absolutePositionOnField) {
-            final Body obstacle = createObstacle(shape);
-
-            obstacle.getTransform().set(GeometryConvertor.toDyn4jTransform(absolutePositionOnField));
+            FixtureDef fd = new FixtureDef();
+            fd.shape = edge;
+            fd.friction = 0.6f;
+            fd.restitution = 0.3f;
+            obstacle.createFixture(fd);
 
             obstacles.add(obstacle);
         }
 
-        private static Body createObstacle(Convex shape) {
-            final Body obstacle = new Body();
-            obstacle.setMass(MassType.INFINITE);
-            final BodyFixture fixture = obstacle.addFixture(shape);
-            fixture.setFriction(0.6);
-            fixture.setRestitution(0.3);
-            return obstacle;
+        protected void addRectangularObstacle(double width, double height, Pose2d absolutePositionOnField) {
+            if (world == null) return;
+            PolygonShape box = new PolygonShape();
+            box.setAsBox((float) (width / 2), (float) (height / 2));
+            addCustomObstacle(box, absolutePositionOnField);
+        }
+
+        protected void addCustomObstacle(Shape shape, Pose2d absolutePositionOnField) {
+            if (world == null) return;
+            BodyDef bd = new BodyDef();
+            bd.type = BodyType.STATIC;
+            bd.position.set(
+                    (float) absolutePositionOnField.getX(), (float) absolutePositionOnField.getY());
+            bd.angle = (float) absolutePositionOnField.getRotation().getRadians();
+            Body obstacle = world.createBody(bd);
+
+            FixtureDef fd = new FixtureDef();
+            fd.shape = shape;
+            fd.friction = 0.6f;
+            fd.restitution = 0.3f;
+            obstacle.createFixture(fd);
+
+            obstacles.add(obstacle);
         }
     }
 }
