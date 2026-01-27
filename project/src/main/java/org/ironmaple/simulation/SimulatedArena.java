@@ -224,6 +224,50 @@ public abstract class SimulatedArena {
 
     private final List<IntakeSimulation> intakeSimulations;
 
+    /** Composite contact listener that delegates to all intake contact listeners */
+    private final CompositeContactListener compositeContactListener;
+
+    /**
+     *
+     *
+     * <h2>A contact listener that delegates to multiple intake listeners.</h2>
+     */
+    private static class CompositeContactListener implements ContactListener {
+        private final List<IntakeSimulation.GamePieceContactListener> listeners = new ArrayList<>();
+
+        public void addListener(IntakeSimulation.GamePieceContactListener listener) {
+            listeners.add(listener);
+        }
+
+        @Override
+        public void beginContact(Contact contact) {
+            for (IntakeSimulation.GamePieceContactListener listener : listeners) {
+                listener.beginContact(contact);
+            }
+        }
+
+        @Override
+        public void endContact(Contact contact) {
+            for (IntakeSimulation.GamePieceContactListener listener : listeners) {
+                listener.endContact(contact);
+            }
+        }
+
+        @Override
+        public void preSolve(Contact contact, Manifold oldManifold) {
+            for (IntakeSimulation.GamePieceContactListener listener : listeners) {
+                listener.preSolve(contact, oldManifold);
+            }
+        }
+
+        @Override
+        public void postSolve(Contact contact, ContactImpulse impulse) {
+            for (IntakeSimulation.GamePieceContactListener listener : listeners) {
+                listener.postSolve(contact, impulse);
+            }
+        }
+    }
+
     /**
      *
      *
@@ -238,6 +282,9 @@ public abstract class SimulatedArena {
     protected SimulatedArena(FieldMap obstaclesMap) {
         // Create world with zero gravity (2D top-down simulation)
         this.physicsWorld = new World(new Vec2(0, 0));
+        // Set up composite contact listener for multiple intakes
+        this.compositeContactListener = new CompositeContactListener();
+        this.physicsWorld.setContactListener(compositeContactListener);
         // Set the field map's world reference so it can create obstacles
         obstaclesMap.setWorld(this.physicsWorld);
         // Now initialize the obstacles (subclasses should call their obstacle creation in constructor after super())
@@ -315,7 +362,7 @@ public abstract class SimulatedArena {
      */
     protected synchronized void addIntakeSimulation(IntakeSimulation intakeSimulation) {
         this.intakeSimulations.add(intakeSimulation);
-        this.physicsWorld.setContactListener(intakeSimulation.getGamePieceContactListener());
+        this.compositeContactListener.addListener(intakeSimulation.getGamePieceContactListener());
     }
 
     /**
@@ -752,15 +799,24 @@ public abstract class SimulatedArena {
     public abstract static class FieldMap {
         protected final List<Body> obstacles = new ArrayList<>();
         protected World world;
-        
+
+        /** Type-safe record for pending border lines */
+        private record PendingBorderLine(Translation2d start, Translation2d end) {}
+
+        /** Type-safe record for pending rectangular obstacles */
+        private record PendingRectangularObstacle(double width, double height, Pose2d pose) {}
+
+        /** Type-safe record for pending custom obstacles */
+        private record PendingCustomObstacle(Shape shape, Pose2d pose) {}
+
         /** Pending border lines to add when world is set */
-        private final List<Translation2d[]> pendingBorderLines = new ArrayList<>();
-        
+        private final List<PendingBorderLine> pendingBorderLines = new ArrayList<>();
+
         /** Pending rectangular obstacles to add when world is set */
-        private final List<Object[]> pendingRectangularObstacles = new ArrayList<>();
-        
+        private final List<PendingRectangularObstacle> pendingRectangularObstacles = new ArrayList<>();
+
         /** Pending custom obstacles to add when world is set */
-        private final List<Object[]> pendingCustomObstacles = new ArrayList<>();
+        private final List<PendingCustomObstacle> pendingCustomObstacles = new ArrayList<>();
 
         /**
          *
@@ -771,28 +827,28 @@ public abstract class SimulatedArena {
          */
         public void setWorld(World world) {
             this.world = world;
-            
+
             // Create all pending obstacles now that we have a world
-            for (Translation2d[] line : pendingBorderLines) {
-                createBorderLine(line[0], line[1]);
+            for (PendingBorderLine line : pendingBorderLines) {
+                createBorderLine(line.start, line.end);
             }
-            for (Object[] rect : pendingRectangularObstacles) {
-                createRectangularObstacle((Double) rect[0], (Double) rect[1], (Pose2d) rect[2]);
+            for (PendingRectangularObstacle rect : pendingRectangularObstacles) {
+                createRectangularObstacle(rect.width, rect.height, rect.pose);
             }
-            for (Object[] custom : pendingCustomObstacles) {
-                createCustomObstacle((Shape) custom[0], (Pose2d) custom[1]);
+            for (PendingCustomObstacle custom : pendingCustomObstacles) {
+                createCustomObstacle(custom.shape, custom.pose);
             }
         }
 
         protected void addBorderLine(Translation2d startingPoint, Translation2d endingPoint) {
             if (world == null) {
                 // Store for later when world is available
-                pendingBorderLines.add(new Translation2d[] {startingPoint, endingPoint});
+                pendingBorderLines.add(new PendingBorderLine(startingPoint, endingPoint));
                 return;
             }
             createBorderLine(startingPoint, endingPoint);
         }
-        
+
         private void createBorderLine(Translation2d startingPoint, Translation2d endingPoint) {
             BodyDef bd = new BodyDef();
             bd.type = BodyType.STATIC;
@@ -815,7 +871,7 @@ public abstract class SimulatedArena {
 
         protected void addRectangularObstacle(double width, double height, Pose2d absolutePositionOnField) {
             if (world == null) {
-                pendingRectangularObstacles.add(new Object[] {width, height, absolutePositionOnField});
+                pendingRectangularObstacles.add(new PendingRectangularObstacle(width, height, absolutePositionOnField));
                 return;
             }
             createRectangularObstacle(width, height, absolutePositionOnField);
@@ -829,17 +885,16 @@ public abstract class SimulatedArena {
 
         protected void addCustomObstacle(Shape shape, Pose2d absolutePositionOnField) {
             if (world == null) {
-                pendingCustomObstacles.add(new Object[] {shape, absolutePositionOnField});
+                pendingCustomObstacles.add(new PendingCustomObstacle(shape, absolutePositionOnField));
                 return;
             }
             createCustomObstacle(shape, absolutePositionOnField);
         }
-        
+
         private void createCustomObstacle(Shape shape, Pose2d absolutePositionOnField) {
             BodyDef bd = new BodyDef();
             bd.type = BodyType.STATIC;
-            bd.position.set(
-                    (float) absolutePositionOnField.getX(), (float) absolutePositionOnField.getY());
+            bd.position.set((float) absolutePositionOnField.getX(), (float) absolutePositionOnField.getY());
             bd.angle = (float) absolutePositionOnField.getRotation().getRadians();
             Body obstacle = world.createBody(bd);
 

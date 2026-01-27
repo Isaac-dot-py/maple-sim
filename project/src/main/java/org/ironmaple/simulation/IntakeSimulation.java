@@ -52,6 +52,12 @@ import org.jbox2d.dynamics.contacts.Contact;
  * functioning of an intake mechanism.
  */
 public class IntakeSimulation {
+    /**
+     * Small inward offset (in meters) applied to the intake position to prevent the intake
+     * from extending exactly to the edge of the chassis, which helps avoid collision issues.
+     */
+    private static final double INTAKE_INWARD_OFFSET_METERS = 0.01;
+
     private final int capacity;
     private int gamePiecesInIntakeCount;
     private boolean intakeRunning;
@@ -131,7 +137,7 @@ public class IntakeSimulation {
     private static PolygonShape createIntakeShape(
             AbstractDriveTrainSimulation driveTrainSimulation, double width, double lengthExtended, IntakeSide side) {
         PolygonShape shape = new PolygonShape();
-        final double distanceTransformed = lengthExtended / 2 - 0.01;
+        final double distanceTransformed = lengthExtended / 2 - INTAKE_INWARD_OFFSET_METERS;
 
         Vec2 center;
         float halfWidth;

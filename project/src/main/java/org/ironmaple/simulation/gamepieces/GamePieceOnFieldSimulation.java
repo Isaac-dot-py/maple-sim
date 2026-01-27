@@ -15,6 +15,8 @@ import java.util.function.DoubleSupplier;
 import org.ironmaple.simulation.IntakeSimulation;
 import org.ironmaple.simulation.SimulatedArena;
 import org.ironmaple.utils.mathutils.GeometryConvertor;
+import org.jbox2d.collision.shapes.CircleShape;
+import org.jbox2d.collision.shapes.PolygonShape;
 import org.jbox2d.collision.shapes.Shape;
 import org.jbox2d.common.Vec2;
 import org.jbox2d.dynamics.Body;
@@ -158,9 +160,23 @@ public class GamePieceOnFieldSimulation implements GamePiece {
      * <h2>Gets the approximate area of a shape.</h2>
      */
     private double getShapeArea(Shape shape) {
-        // Approximate area calculation
-        // For now, use a default value; specific shapes should override
-        return 0.01; // Default 100 cm^2
+        if (shape instanceof CircleShape) {
+            CircleShape circle = (CircleShape) shape;
+            return Math.PI * circle.m_radius * circle.m_radius;
+        } else if (shape instanceof PolygonShape) {
+            PolygonShape polygon = (PolygonShape) shape;
+            // Calculate polygon area using the shoelace formula
+            double area = 0;
+            int count = polygon.getVertexCount();
+            for (int i = 0; i < count; i++) {
+                Vec2 v1 = polygon.getVertex(i);
+                Vec2 v2 = polygon.getVertex((i + 1) % count);
+                area += v1.x * v2.y - v2.x * v1.y;
+            }
+            return Math.abs(area) / 2.0;
+        }
+        // Default fallback for unknown shapes (100 cm^2)
+        return 0.01;
     }
 
     /**

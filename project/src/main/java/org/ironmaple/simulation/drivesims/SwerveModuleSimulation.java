@@ -195,11 +195,14 @@ public class SwerveModuleSimulation {
         if (skidding) propellingForceNewtons = Math.copySign(grippingForceNewtons, propellingForceNewtons);
 
         // Calculate angle between velocity and module facing using Box2D Vec2
-        Vec2 facingVec = new Vec2((float) Math.cos(moduleWorldFacing.getRadians()), (float) Math.sin(moduleWorldFacing.getRadians()));
+        // facingVec is a unit vector (length = 1) created from cos/sin
+        Vec2 facingVec = new Vec2(
+                (float) Math.cos(moduleWorldFacing.getRadians()), (float) Math.sin(moduleWorldFacing.getRadians()));
         double velocityMagnitude = moduleCurrentGroundVelocity.length();
         double cosAngle = 0;
         if (velocityMagnitude > 0.001) {
-            cosAngle = Vec2.dot(moduleCurrentGroundVelocity, facingVec) / (velocityMagnitude * facingVec.length());
+            // facingVec is a unit vector, so we can simplify the dot product calculation
+            cosAngle = Vec2.dot(moduleCurrentGroundVelocity, facingVec) / velocityMagnitude;
         }
         final double floorVelocityProjectionOnWheelDirectionMPS = velocityMagnitude * cosAngle;
 
