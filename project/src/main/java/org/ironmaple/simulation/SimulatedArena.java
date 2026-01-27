@@ -752,20 +752,48 @@ public abstract class SimulatedArena {
     public abstract static class FieldMap {
         protected final List<Body> obstacles = new ArrayList<>();
         protected World world;
+        
+        /** Pending border lines to add when world is set */
+        private final List<Translation2d[]> pendingBorderLines = new ArrayList<>();
+        
+        /** Pending rectangular obstacles to add when world is set */
+        private final List<Object[]> pendingRectangularObstacles = new ArrayList<>();
+        
+        /** Pending custom obstacles to add when world is set */
+        private final List<Object[]> pendingCustomObstacles = new ArrayList<>();
 
         /**
          *
          *
-         * <h2>Sets the world for this field map.</h2>
+         * <h2>Sets the world for this field map and creates all pending obstacles.</h2>
          *
          * @param world the Box2D world
          */
         public void setWorld(World world) {
             this.world = world;
+            
+            // Create all pending obstacles now that we have a world
+            for (Translation2d[] line : pendingBorderLines) {
+                createBorderLine(line[0], line[1]);
+            }
+            for (Object[] rect : pendingRectangularObstacles) {
+                createRectangularObstacle((Double) rect[0], (Double) rect[1], (Pose2d) rect[2]);
+            }
+            for (Object[] custom : pendingCustomObstacles) {
+                createCustomObstacle((Shape) custom[0], (Pose2d) custom[1]);
+            }
         }
 
         protected void addBorderLine(Translation2d startingPoint, Translation2d endingPoint) {
-            if (world == null) return;
+            if (world == null) {
+                // Store for later when world is available
+                pendingBorderLines.add(new Translation2d[] {startingPoint, endingPoint});
+                return;
+            }
+            createBorderLine(startingPoint, endingPoint);
+        }
+        
+        private void createBorderLine(Translation2d startingPoint, Translation2d endingPoint) {
             BodyDef bd = new BodyDef();
             bd.type = BodyType.STATIC;
             bd.position.set(0, 0);
@@ -786,14 +814,28 @@ public abstract class SimulatedArena {
         }
 
         protected void addRectangularObstacle(double width, double height, Pose2d absolutePositionOnField) {
-            if (world == null) return;
+            if (world == null) {
+                pendingRectangularObstacles.add(new Object[] {width, height, absolutePositionOnField});
+                return;
+            }
+            createRectangularObstacle(width, height, absolutePositionOnField);
+        }
+        
+        private void createRectangularObstacle(double width, double height, Pose2d absolutePositionOnField) {
             PolygonShape box = new PolygonShape();
             box.setAsBox((float) (width / 2), (float) (height / 2));
-            addCustomObstacle(box, absolutePositionOnField);
+            createCustomObstacle(box, absolutePositionOnField);
         }
 
         protected void addCustomObstacle(Shape shape, Pose2d absolutePositionOnField) {
-            if (world == null) return;
+            if (world == null) {
+                pendingCustomObstacles.add(new Object[] {shape, absolutePositionOnField});
+                return;
+            }
+            createCustomObstacle(shape, absolutePositionOnField);
+        }
+        
+        private void createCustomObstacle(Shape shape, Pose2d absolutePositionOnField) {
             BodyDef bd = new BodyDef();
             bd.type = BodyType.STATIC;
             bd.position.set(
