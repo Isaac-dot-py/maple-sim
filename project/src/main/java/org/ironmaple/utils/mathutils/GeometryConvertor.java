@@ -4,8 +4,8 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
-import org.jbox2d.common.Transform;
-import org.jbox2d.common.Vec2;
+import org.ironmaple.simulation.physics.Transform;
+import org.ironmaple.simulation.physics.Vec2;
 
 /** utils to convert between WPILIB and Box2D geometry classes */
 public class GeometryConvertor {
@@ -26,8 +26,7 @@ public class GeometryConvertor {
     }
 
     public static Pose2d toWpilibPose2d(Transform box2dTransform) {
-        return new Pose2d(
-                toWpilibTranslation2d(box2dTransform.p), toWpilibRotation2d(box2dTransform.q.getAngle()));
+        return new Pose2d(toWpilibTranslation2d(box2dTransform.p), toWpilibRotation2d(box2dTransform.getAngle()));
     }
 
     public static Vec2 toBox2dLinearVelocity(ChassisSpeeds wpilibChassisSpeeds) {

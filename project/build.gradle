@@ -36,7 +36,8 @@ dependencies {
     //    implementation wpi.java.deps.wpilib()
     implementation wpi.java.vendor.java()
 
-    api 'org.jbox2d:jbox2d-library:2.2.1.1'
+    // Box2D physics engine is now compiled as native code (C++ with JNI bindings)
+    // No external dependency needed - see src/main/native/cpp for Box2D source
 
     implementation "edu.wpi.first.cscore:cscore-java:$wpilibVersion"
     implementation "edu.wpi.first.cameraserver:cameraserver-java:$wpilibVersion"
@@ -59,6 +60,33 @@ nativeUtils {
     exportsConfigs {
         // Main library is just default empty. This will export everything
         MapleSim {
+        }
+    }
+}
+
+// Native library configuration for Box2D JNI
+model {
+    components {
+        box2djni(NativeLibrarySpec) {
+            sources {
+                cpp {
+                    source {
+                        srcDirs 'src/main/native/cpp'
+                        include '**/*.cpp'
+                    }
+                    exportedHeaders {
+                        srcDirs 'src/main/native/include'
+                    }
+                }
+            }
+            binaries.all {
+                if (it instanceof SharedLibraryBinarySpec) {
+                    it.buildable = true
+                    cppCompiler.define 'B2_SHARED'
+                } else {
+                    it.buildable = false
+                }
+            }
         }
     }
 }
